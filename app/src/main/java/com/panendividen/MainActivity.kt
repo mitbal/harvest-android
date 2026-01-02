@@ -1,5 +1,8 @@
 package com.panendividen
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -47,7 +50,34 @@ class MainActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): Boolean {
-                return false
+                val url = request.url.toString()
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    return false
+                }
+
+                return try {
+                    val intent = if (url.startsWith("intent:")) {
+                        Intent.parseUri(url, Intent.URI_INTENT_SCHEME).also { parsed ->
+                            parsed.`package`?.let { packageName ->
+                                if (packageManager.resolveActivity(parsed, 0) == null) {
+                                    parsed.getStringExtra("browser_fallback_url")?.let { fallback ->
+                                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallback)))
+                                        return true
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    }
+
+                    startActivity(intent)
+                    true
+                } catch (e: ActivityNotFoundException) {
+                    true
+                } catch (e: Exception) {
+                    true
+                }
             }
         }
     }
